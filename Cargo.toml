@@ -8,7 +8,7 @@ repository = "https://github.com/fxdmhtt/stack-cstr"
 license = "GPL-2.0"
 readme = "README.md"
 keywords = ["CStr", "CString", "FFI"]
-categories = ["ffi", "formatting", "string"]
+categories = ["development-tools::ffi", "memory-management"]
 
 [dependencies]
 arrayvec = "0.7.6"
