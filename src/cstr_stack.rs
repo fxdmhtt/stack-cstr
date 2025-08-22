@@ -4,15 +4,11 @@ use arrayvec::ArrayString;
 
 use crate::CStrLike;
 
-/// A stack-allocated C string with a fixed buffer size.
+/// A stack-allocated, null-terminated C string with fixed capacity.
 ///
-/// `CStrStack<N>` stores a formatted string directly on the stack
-/// with a buffer of `N` bytes, avoiding heap allocation.  
-/// It always appends a trailing `\0` (null terminator) so it can be safely
-/// passed to C FFI functions.
-///
-/// If the formatted string (plus the null terminator) does not fit
-/// into the buffer, [`new`] will return an error.
+/// `CStrStack<N>` stores a formatted string directly on the stack, avoiding heap allocation.
+/// The internal buffer has `N` bytes and is always null-terminated (`\0`),
+/// making it safe to pass to C functions via `as_ptr()`.
 ///
 /// # Examples
 ///
@@ -34,14 +30,10 @@ use crate::CStrLike;
 ///
 /// # Errors
 ///
-/// Returns `Err("stack buffer overflow")` if the formatted string is too
-/// long to fit in the buffer.
-///
-/// Returns `Err("format failed")` if formatting the string fails
-/// (rare case, usually only if the formatter writes an error).
+/// - Returns `Err("buffer overflow")` if the formatted string (plus NUL) does not fit in the buffer.
+/// - Returns `Err("format failed")` if formatting fails (rare case; ArrayString rarely errors).
 pub struct CStrStack<const N: usize> {
-    buf: [u8; N],
-    len: usize,
+    buf: ArrayString<N>,
 }
 
 impl<const N: usize> CStrStack<N> {
@@ -53,19 +45,12 @@ impl<const N: usize> CStrStack<N> {
         let mut buf: ArrayString<N> = ArrayString::new();
         std::fmt::write(&mut buf, fmt).map_err(|_| "format failed")?;
 
-        let bytes = buf.as_bytes();
-        if bytes.len() + 1 > N {
-            return Err("stack buffer overflow");
+        if buf.len() + 1 > N {
+            return Err("buffer overflow");
         }
+        buf.push('\0');
 
-        let mut c_buf: [u8; N] = [0; N];
-        c_buf[..bytes.len()].copy_from_slice(bytes);
-        c_buf[bytes.len()] = 0;
-
-        Ok(CStrStack {
-            buf: c_buf,
-            len: bytes.len(),
-        })
+        Ok(Self { buf })
     }
 
     /// Returns a raw pointer to the null-terminated C string.
@@ -83,7 +68,7 @@ impl<const N: usize> CStrStack<N> {
     /// The buffer is guaranteed to be null-terminated by construction,
     /// so this is always safe.
     pub fn as_cstr(&self) -> &CStr {
-        unsafe { CStr::from_bytes_with_nul_unchecked(&self.buf[..self.len + 1]) }
+        unsafe { CStr::from_bytes_with_nul_unchecked(&self.buf.as_bytes()[..self.buf.len()]) }
     }
 }
 
