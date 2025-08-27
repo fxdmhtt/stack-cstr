@@ -2,7 +2,7 @@ use std::ffi::{CStr, c_char};
 
 use arrayvec::ArrayString;
 
-use crate::CStrLike;
+use crate::{CStrError, CStrLike};
 
 /// A stack-allocated, null-terminated C string with fixed capacity.
 ///
@@ -41,14 +41,11 @@ impl<const N: usize> CStrStack<N> {
     ///
     /// The string is written into an internal buffer of size `N`.
     /// If the string does not fit, returns an error.
-    pub fn new(fmt: std::fmt::Arguments) -> Result<CStrStack<N>, &'static str> {
+    pub fn new(fmt: std::fmt::Arguments) -> Result<CStrStack<N>, CStrError> {
         let mut buf: ArrayString<N> = ArrayString::new();
-        std::fmt::write(&mut buf, fmt).map_err(|_| "format failed")?;
+        std::fmt::write(&mut buf, fmt)?;
 
-        if buf.len() + 1 > N {
-            return Err("buffer overflow");
-        }
-        buf.push('\0');
+        buf.try_push('\0')?;
 
         Ok(Self { buf })
     }
